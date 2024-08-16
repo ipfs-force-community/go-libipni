@@ -91,6 +91,8 @@ func (s *Sender) Send(ctx context.Context, msg message.Message) error {
 	if len(s.extraData) != 0 {
 		msg.ExtraData = s.extraData
 	}
+	addrs, _ := msg.GetAddrs()
+	fmt.Printf("http sender, msg cid: %s, msg addrs: %v\n", msg.Cid, addrs)
 	buf := bytes.NewBuffer(nil)
 	if err = msg.MarshalCBOR(buf); err != nil {
 		return fmt.Errorf("cannot cbor encode announce message: %w", err)
@@ -181,6 +183,8 @@ func (s *Sender) sendAnnounce(ctx context.Context, announceURL string, buf *byte
 	} else {
 		req.Header.Set("Content-Type", "application/octet-stream")
 	}
+	fmt.Printf("http sender, announceURLs: %s, peer id: %s, sending announce to %s\n", s.announceURLs,
+		s.peerID.String(), announceURL)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
@@ -195,6 +199,9 @@ func (s *Sender) sendAnnounce(ctx context.Context, announceURL string, buf *byte
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("%d %s: %s", resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(body)))
+	} else {
+		fmt.Printf("http sender success, announceURLs: %s, peer id: %s, sent announce to %s\n", s.announceURLs,
+			s.peerID.String(), announceURL)
 	}
 	return nil
 }

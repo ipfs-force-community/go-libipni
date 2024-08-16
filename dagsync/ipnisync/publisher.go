@@ -179,6 +179,7 @@ func (p *Publisher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// then check for the expected prefix.. This happens when using an external
 	// server with this Publisher as the request handler.
 	urlPath := strings.TrimPrefix(r.URL.Path, "/")
+	fmt.Println("ServeHTTP urlPath", urlPath)
 	if p.handlerPath != "" {
 		// A URL path from http will have a leading "/". A URL from libp2phttp will not.
 		if !strings.HasPrefix(urlPath, p.handlerPath) {
@@ -218,6 +219,7 @@ func (p *Publisher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request: not a cid", http.StatusBadRequest)
 		return
 	}
+	fmt.Printf("ServeHTTP ask %s\n", c)
 	item, err := p.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: c}, basicnode.Prototype.Any)
 	if err != nil {
 		if errors.Is(err, ipld.ErrNotExists{}) {

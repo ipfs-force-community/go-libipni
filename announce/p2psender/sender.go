@@ -70,6 +70,8 @@ func (s *Sender) Send(ctx context.Context, msg message.Message) error {
 	if len(s.extraData) != 0 {
 		msg.ExtraData = s.extraData
 	}
+	addrs, _ := msg.GetAddrs()
+	fmt.Printf("libp2p sender, cid: %s, msg addrs: %v\n", msg.Cid, addrs)
 	buf := bytes.NewBuffer(nil)
 	if err := msg.MarshalCBOR(buf); err != nil {
 		return err
