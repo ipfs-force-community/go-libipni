@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 
 	"github.com/ipni/go-libipni/apierror"
 	"github.com/ipni/go-libipni/find/model"
@@ -23,6 +24,7 @@ const (
 // Client is an http client for the indexer find API
 type Client struct {
 	c            *http.Client
+	baseURL      string
 	findURL      *url.URL
 	providersURL *url.URL
 	statsURL     *url.URL
@@ -49,6 +51,7 @@ func New(baseURL string, options ...Option) (*Client, error) {
 
 	return &Client{
 		c:            opts.httpClient,
+		baseURL:      baseURL,
 		findURL:      u.JoinPath(findPath),
 		providersURL: u.JoinPath(providersPath),
 		statsURL:     u.JoinPath(statsPath),
@@ -60,6 +63,38 @@ func New(baseURL string, options ...Option) (*Client, error) {
 func (c *Client) Find(ctx context.Context, m multihash.Multihash) (*model.FindResponse, error) {
 	u := c.findURL.JoinPath(m.B58String())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Handle failed requests
+	if resp.StatusCode != http.StatusOK {
+		io.Copy(io.Discard, resp.Body)
+		if resp.StatusCode == http.StatusNotFound {
+			return &model.FindResponse{}, nil
+		}
+		return nil, fmt.Errorf("find query failed: %v", http.StatusText(resp.StatusCode))
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return model.UnmarshalFindResponse(b)
+}
+
+func (c *Client) FindByPayloadCID(ctx context.Context, payloadCID string) (*model.FindResponse, error) {
+	u := c.baseURL + filepath.Join("/cid", payloadCID)
+	fmt.Println("url: ", u)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}

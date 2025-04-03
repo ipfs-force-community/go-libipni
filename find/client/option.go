@@ -30,6 +30,9 @@ func getOpts(opts []Option) (config, error) {
 		httpClient: http.DefaultClient,
 		pcacheTTL:  defaultPcacheTTL,
 	}
+	cfg.httpClient.Transport = &http.Transport{
+		TLSHandshakeTimeout: 100 * time.Second,
+	}
 	for i, opt := range opts {
 		if err := opt(&cfg); err != nil {
 			return config{}, fmt.Errorf("option %d failed: %s", i, err)
