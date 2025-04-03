@@ -45,3 +45,35 @@ func Send(ctx context.Context, c cid.Cid, addrs []multiaddr.Multiaddr, senders .
 	}
 	return errs
 }
+
+// Send sends an advertisement announcement message, containing the specified
+// addresses and extra data, to all senders.
+func Send2(ctx context.Context, c cid.Cid, addrs []multiaddr.Multiaddr, senders ...Sender) (int, error) {
+	// Do nothing if nothing to announce or no means to announce it.
+	if c == cid.Undef || len(senders) == 0 {
+		return 0, nil
+	}
+
+	msg := message.Message{
+		Cid: c,
+	}
+	msg.SetAddrs(addrs)
+
+	var errs error
+	var count int
+	for _, sender := range senders {
+		if sender == nil {
+			continue
+		}
+		if err := sender.Send(ctx, msg); err != nil {
+			errs = multierror.Append(errs, err)
+			if errors.Is(err, context.Canceled) {
+				return count, err
+			}
+		} else {
+			count++
+		}
+	}
+
+	return count, errs
+}
