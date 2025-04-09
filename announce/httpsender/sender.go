@@ -95,7 +95,10 @@ func (s *Sender) Send(ctx context.Context, msg message.Message) error {
 	if err = msg.MarshalCBOR(buf); err != nil {
 		return fmt.Errorf("cannot cbor encode announce message: %w", err)
 	}
-	return s.sendData(ctx, buf, false)
+	if err := s.sendData(ctx, buf, false); err != nil {
+		return fmt.Errorf("http send failed: %v", err)
+	}
+	return nil
 }
 
 func (s *Sender) SendJson(ctx context.Context, msg message.Message) error {

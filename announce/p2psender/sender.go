@@ -74,7 +74,10 @@ func (s *Sender) Send(ctx context.Context, msg message.Message) error {
 	if err := msg.MarshalCBOR(buf); err != nil {
 		return err
 	}
-	return s.topic.Publish(ctx, buf.Bytes())
+	if err := s.topic.Publish(ctx, buf.Bytes()); err != nil {
+		return fmt.Errorf("libp2p pubsub publish error: %w", err)
+	}
+	return nil
 }
 
 // TopicName returns the name of the topic that messages are sent to.
