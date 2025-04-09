@@ -79,6 +79,7 @@ func NewPublisher(lsys ipld.LinkSystem, privKey ic.PrivKey, options ...Option) (
 	} else {
 		handlerPath = strings.TrimPrefix(IPNIPath, "/")
 	}
+	log.Infof("publisher handler path: %s", handlerPath)
 
 	if !opts.startServer {
 		httpListenAddrs, err := httpAddrsToMultiaddrs(opts.httpAddrs, opts.requireTLS, opts.handlerPath)
@@ -223,6 +224,7 @@ func (p *Publisher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request: not a cid", http.StatusBadRequest)
 		return
 	}
+	log.Debugf("publisher request for cid %s", c)
 
 	ipldCtx := ipld.LinkContext{}
 	reqType := r.Header.Get(CidSchemaHeader)
@@ -239,10 +241,11 @@ func (p *Publisher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ipld.ErrNotExists{}) {
 			http.Error(w, "cid not found", http.StatusNotFound)
+			log.Debugf("publisher request for cid %s, error: %v", c, "cid not found")
 			return
 		}
 		http.Error(w, "unable to load data for cid", http.StatusInternalServerError)
-		log.Errorw("Failed to load requested block", "err", err, "cid", c)
+		log.Errorw("publisher failed to load requested block", "err", err, "cid", c)
 		return
 	}
 	// marshal to json and serve.
