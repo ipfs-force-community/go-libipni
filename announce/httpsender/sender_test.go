@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +49,25 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func TestProxy(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "test")
+	require.NoError(t, err)
+
+	fName := f.Name()
+	fmt.Println(fName)
+
+	_, _ = f.WriteString("http://127.0.0.1:9999\n")
+	_, _ = f.WriteString("http://127.0.0.1:8888\n")
+
+	err = os.Setenv(httpsender.HttpAnnounceProxyFileEnv, fName)
+	require.NoError(t, err)
+
+	announcURL, err := url.Parse("http://127.0.0.1:9990")
+	require.NoError(t, err)
+	_, err = httpsender.New([]*url.URL{announcURL}, testPeerID)
+	require.NoError(t, err)
 }
 
 func TestSend(t *testing.T) {

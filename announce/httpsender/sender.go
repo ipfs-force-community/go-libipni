@@ -9,12 +9,50 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipni/go-libipni/announce/message"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
+
+var log = logging.Logger("httpsender")
+
+var HttpAnnounceProxyFileEnv = "HttpAnnounceProxyFile"
+
+var proxys = []*url.URL{}
+
+func loadProxy() {
+	proxyFile := os.Getenv(HttpAnnounceProxyFileEnv)
+	if proxyFile != "" {
+		f, err := os.Open(proxyFile)
+		if err != nil {
+			panic(fmt.Sprintf("failed to open proxy file %s: %v", proxyFile, err))
+		}
+		data, err := io.ReadAll(f)
+		if err != nil {
+			panic(fmt.Sprintf("failed to read proxy file %s: %v", proxyFile, err))
+		}
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			line = strings.TrimSpace(line)
+			proxy, err := url.Parse(line)
+			if err != nil {
+				fmt.Printf("failed to parse proxy url %s: %v\n", line, err)
+				continue
+			}
+			proxys = append(proxys, proxy)
+			fmt.Println("add proxy: ", line)
+		}
+	}
+}
 
 const DefaultAnnouncePath = "/announce"
 
@@ -25,6 +63,9 @@ type Sender struct {
 	extraData    []byte
 	peerID       peer.ID
 	userAgent    string
+
+	lk  sync.Mutex
+	idx int
 }
 
 // New creates a new Sender that sends advertisement announcement messages over
@@ -35,6 +76,9 @@ func New(announceURLs []*url.URL, peerID peer.ID, options ...Option) (*Sender, e
 	if len(announceURLs) == 0 {
 		return nil, errors.New("no announce urls")
 	}
+
+	loadProxy()
+
 	err := peerID.Validate()
 	if err != nil {
 		return nil, err
@@ -185,7 +229,20 @@ func (s *Sender) sendAnnounce(ctx context.Context, announceURL string, buf *byte
 		req.Header.Set("Content-Type", "application/octet-stream")
 	}
 
+	s.lk.Lock()
+	if len(proxys) > 0 {
+		s.idx++
+		s.idx = s.idx % len(proxys)
+		proxy := proxys[s.idx]
+		s.client.Transport = &http.Transport{
+			Proxy: func(r *http.Request) (*url.URL, error) {
+				return proxy, nil
+			},
+		}
+		log.Debugf("use proxy: %s", proxy.String())
+	}
 	resp, err := s.client.Do(req)
+	s.lk.Unlock()
 	if err != nil {
 		return err
 	}
