@@ -5,6 +5,7 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 var _ pubsub.RawTracer = (*loggingTracer)(nil)
@@ -15,12 +16,16 @@ type loggingTracer struct {
 	log *logging.ZapEventLogger
 }
 
-func (l *loggingTracer) AddPeer(p peer.ID, proto protocol.ID) {
-	l.log.Debugf("Peer added with ID %s and protocol %s", p, proto)
-}
-
 func (l *loggingTracer) RemovePeer(p peer.ID) {
 	l.log.Debugf("Peer removed with ID %s", p)
+}
+
+func (l *loggingTracer) OnNewOutboundStream(p peer.ID, proto protocol.ID) {
+	l.log.Debugf("New outbound %s stream opened to peer %s", proto, p)
+}
+
+func (l *loggingTracer) OnClosedOutboundStream(p peer.ID) {
+	l.log.Debugf("Closed outbound stream to peer %s", p)
 }
 
 func (l *loggingTracer) Join(topic string) {
@@ -43,21 +48,21 @@ func (l *loggingTracer) ValidateMessage(msg *pubsub.Message) {
 	l.log.Debugf("Validating message from peer ID %s on topic %s with size %d bytes",
 		msg.GetFrom(),
 		msg.GetTopic(),
-		msg.Size())
+		proto.Size(msg))
 }
 
 func (l *loggingTracer) DeliverMessage(msg *pubsub.Message) {
 	l.log.Debugf("Delivered message from peer ID %s on topic %s with size %d bytes",
 		msg.GetFrom(),
 		msg.GetTopic(),
-		msg.Size())
+		proto.Size(msg))
 }
 
 func (l *loggingTracer) RejectMessage(msg *pubsub.Message, reason string) {
 	l.log.Debugf("Rejected message from peer ID %s on topic %s with size %d bytes: %s",
 		msg.GetFrom(),
 		msg.GetTopic(),
-		msg.Size(),
+		proto.Size(msg),
 		reason)
 }
 
@@ -65,7 +70,7 @@ func (l *loggingTracer) DuplicateMessage(msg *pubsub.Message) {
 	l.log.Debugf("Dropped duplicate message from peer ID %s on topic %s with size %d bytes",
 		msg.GetFrom(),
 		msg.GetTopic(),
-		msg.Size())
+		proto.Size(msg))
 }
 
 func (l *loggingTracer) ThrottlePeer(p peer.ID) {
@@ -73,20 +78,20 @@ func (l *loggingTracer) ThrottlePeer(p peer.ID) {
 }
 
 func (l *loggingTracer) RecvRPC(rpc *pubsub.RPC) {
-	l.log.Debugf("Received RPC with size %d bytes", rpc.Size())
+	l.log.Debugf("Received RPC with size %d bytes", proto.Size(rpc))
 }
 
 func (l *loggingTracer) SendRPC(rpc *pubsub.RPC, p peer.ID) {
-	l.log.Debugf("Sent RPC with size %d bytes to peer ID %s", rpc.Size(), p)
+	l.log.Debugf("Sent RPC with size %d bytes to peer ID %s", proto.Size(rpc), p)
 }
 
 func (l *loggingTracer) DropRPC(rpc *pubsub.RPC, p peer.ID) {
-	l.log.Debugf("Dropped RPC with size %d bytes to peer ID %s", rpc.Size(), p)
+	l.log.Debugf("Dropped RPC with size %d bytes to peer ID %s", proto.Size(rpc), p)
 }
 
 func (l *loggingTracer) UndeliverableMessage(msg *pubsub.Message) {
 	l.log.Debugf("Undeliverable message from peer ID %s on topic %s with size %d bytes",
 		msg.GetFrom(),
 		msg.GetTopic(),
-		msg.Size())
+		proto.Size(msg))
 }
